@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleDetection": "force",
+    "allowJs": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noPropertyAccessFromIndexSignature": false,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@api/*": ["src/*"],
+      "@db/*": ["../../packages/db/src/*"],
+      "@nebula/cache/*": ["../../packages/cache/src/*"],
+      "@nebula/*": ["../../packages/*"],
+      "@/services/*": ["../services/*"],
+      "@/services/auth/*": ["../services/auth/src/*"],
+      "@/services/posts/*": ["../services/posts/src/*"],
+      "@/services/follow/*": ["../services/follow/src/*"],
+      "@/services/timeline/*": ["../services/timeline/src/*"],
+      "@/services/search/*": ["../services/search/src/*"],
+      "@/services/media/*": ["../services/media/src/*"],
+      "@/services/messages/*": ["../services/messages/src/*"]
+    },
+    "types": ["bun-types"]
+  },
+  "exclude": ["node_modules"],
+  "include": ["src/**/*.ts"]
+}

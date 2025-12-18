@@ -1,0 +1,26 @@
+{
+  "name": "@nebula/cache",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./redis-client": "./src/redis-client.ts",
+    "./posts-cache": "./src/posts-cache.ts",
+    "./follows-cache": "./src/follows-cache.ts",
+    "./timeline-cache": "./src/timeline-cache.ts",
+    "./events": "./src/events.ts",
+    "./health": "./src/health.ts"
+  },
+  "dependencies": {
+    "redis": "^5.8.3"
+  },
+  "devDependencies": {
+    "@types/redis": "^4.0.11"
+  }
+}

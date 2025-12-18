@@ -1,0 +1,35 @@
+{
+  "extends": "@nebula/typescript/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/gateway/*": ["../../apps/gateway/*"],
+      "@/services/*": ["../../apps/services/*"],
+      "@/services/auth/*": ["../../apps/services/auth/src/*"],
+      "@/services/posts/*": ["../../apps/services/posts/src/*"],
+      "@/services/follow/*": ["../../apps/services/follow/src/*"],
+      "@/services/timeline/*": ["../../apps/services/timeline/src/*"],
+      "@/services/search/*": ["../../apps/services/search/src/*"],
+      "@/services/media/*": ["../../apps/services/media/src/*"],
+      "@/services/messages/*": ["../../apps/services/messages/src/*"],
+      "@/schemas/*": [
+        "../../apps/services/auth/src/schemas/*",
+        "../../apps/services/posts/src/schemas/*",
+        "../../apps/services/follow/src/schemas/*"
+      ],
+      "@/utils/*": ["./src/utils/*"],
+      "@api/*": ["../../apps/gateway/src/*"]
+    },
+    "strict": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "next.config.js",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "tailwind.config.ts"
+  ],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,235 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nebula-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nebula}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: nebula-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  service-auth:
+    build:
+      context: .
+      dockerfile: apps/services/auth/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3010
+    ports:
+      - "3010:3010"
+    depends_on:
+      - postgres
+      - redis
+
+  service-posts:
+    build:
+      context: .
+      dockerfile: apps/services/posts/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      PORT: 3011
+    ports:
+      - "3011:3011"
+    depends_on:
+      - postgres
+      - redis
+
+  service-timeline:
+    build:
+      context: .
+      dockerfile: apps/services/timeline/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      PORT: 3012
+      TRIGGER_SECRET_KEY: ${TRIGGER_SECRET_KEY}
+    ports:
+      - "3012:3012"
+    depends_on:
+      - postgres
+      - redis
+
+  service-follow:
+    build:
+      context: .
+      dockerfile: apps/services/follow/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      PORT: 3013
+    ports:
+      - "3013:3013"
+    depends_on:
+      - postgres
+      - redis
+
+  service-realtime:
+    build:
+      context: .
+      dockerfile: apps/services/realtime/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3014
+    ports:
+      - "3014:3014"
+    depends_on:
+      - postgres
+      - redis
+
+  service-search:
+    build:
+      context: .
+      dockerfile: apps/services/search/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      PORT: 3015
+    ports:
+      - "3015:3015"
+    depends_on:
+      - postgres
+      - redis
+
+  service-media:
+    build:
+      context: .
+      dockerfile: apps/services/media/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      PORT: 3017
+      JWT_SECRET: ${JWT_SECRET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL}
+      TRIGGER_SECRET_KEY: ${TRIGGER_SECRET_KEY}
+    ports:
+      - "3017:3017"
+    depends_on:
+      - postgres
+      - redis
+
+  service-messages:
+    build:
+      context: .
+      dockerfile: apps/services/messages/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      PORT: 3018
+    ports:
+      - "3018:3018"
+    depends_on:
+      - postgres
+      - redis
+
+  haproxy:
+    image: haproxy:2.9-alpine
+    container_name: nebula-haproxy
+    ports:
+      - "80:80"
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - gateway-1
+      - gateway-2
+      - gateway-3
+
+  gateway-1:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    environment:
+      PORT: 3003
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      AUTH_SERVICE_URL: http://service-auth:3010
+      POST_SERVICE_URL: http://service-posts:3011
+      TIMELINE_SERVICE_URL: http://service-timeline:3012
+      FOLLOW_SERVICE_URL: http://service-follow:3013
+      REALTIME_SERVICE_URL: http://service-realtime:3014
+      SEARCH_SERVICE_URL: http://service-search:3015
+      MEDIA_SERVICE_URL: http://service-media:3017
+      MESSAGES_SERVICE_URL: http://service-messages:3018
+      ALLOWED_API_ORIGINS: ${ALLOWED_API_ORIGINS:-http://localhost:3000,http://localhost}
+    depends_on:
+      - postgres
+      - redis
+
+  gateway-2:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    environment:
+      PORT: 3003
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      AUTH_SERVICE_URL: http://service-auth:3010
+      POST_SERVICE_URL: http://service-posts:3011
+      TIMELINE_SERVICE_URL: http://service-timeline:3012
+      FOLLOW_SERVICE_URL: http://service-follow:3013
+      REALTIME_SERVICE_URL: http://service-realtime:3014
+      SEARCH_SERVICE_URL: http://service-search:3015
+      MEDIA_SERVICE_URL: http://service-media:3017
+      MESSAGES_SERVICE_URL: http://service-messages:3018
+      ALLOWED_API_ORIGINS: ${ALLOWED_API_ORIGINS:-http://localhost:3000,http://localhost}
+    depends_on:
+      - postgres
+      - redis
+
+  gateway-3:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    environment:
+      PORT: 3003
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-nebula}
+      REDIS_URL: redis://redis:6379
+      AUTH_SERVICE_URL: http://service-auth:3010
+      POST_SERVICE_URL: http://service-posts:3011
+      TIMELINE_SERVICE_URL: http://service-timeline:3012
+      FOLLOW_SERVICE_URL: http://service-follow:3013
+      REALTIME_SERVICE_URL: http://service-realtime:3014
+      SEARCH_SERVICE_URL: http://service-search:3015
+      MEDIA_SERVICE_URL: http://service-media:3017
+      MESSAGES_SERVICE_URL: http://service-messages:3018
+      ALLOWED_API_ORIGINS: ${ALLOWED_API_ORIGINS:-http://localhost:3000,http://localhost}
+    depends_on:
+      - postgres
+      - redis
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: nebula-portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  portainer_data:

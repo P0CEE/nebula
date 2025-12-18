@@ -1,0 +1,24 @@
+{
+  "name": "@nebula/service-realtime",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "TZ=UTC PORT=3014 bun run --hot src/index.ts",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nebula/cache": "workspace:*",
+    "@nebula/logger": "workspace:*",
+    "@nebula/realtime": "workspace:*",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "hono": "^4.9.2",
+    "jose": "^6.1.3",
+    "redis": "^4.6.12",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
