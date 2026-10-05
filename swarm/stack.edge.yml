@@ -1,16 +1,23 @@
 # ===========================================================================
-# Point d'entree HTTP : FOURNI, fonctionnel, a ne pas modifier.
+# Point d'entree HTTP.
 #
-#   docker network create --driver overlay --attachable edge_public
-#   docker stack deploy -c swarm/stack.edge.yml edge
+#   docker stack deploy -c swarm/stack.edge.yml edge   (cree le reseau edge_public)
 #
 # Un seul port ouvert sur tout le cluster. Chaque service declare son routage
 # dans SES labels : ajouter un service ne demande aucune modification ici.
 # C'est ce qui rend le scenario 8 (ajout d'un service en soutenance) tenable.
+#
+# Ecarts par rapport au fichier fourni :
+#   - traefik v3.3 -> v3.6.25 : v3.3 parle l'API Docker 1.24, refusee par
+#     Docker 29 (minimum 1.40). Avec v3.3, Traefik ne voit aucun service.
+#   - port 8088 et --api.insecure retires : un seul port publie (80).
+#   - tableau de bord sur l'entrypoint "traefik" (:8080) NON publie, protege
+#     par mot de passe (secret edge_admin_htpasswd). Acces uniquement par
+#     tunnel SSH vers le manager : scripts/admin-tunnel.sh.
 # ===========================================================================
 services:
   traefik:
-    image: traefik:v3.3
+    image: traefik:v3.6.25
     command:
       - --providers.swarm=true
       - --providers.swarm.endpoint=unix:///var/run/docker.sock
@@ -18,23 +25,35 @@ services:
       - --providers.swarm.network=edge_public
       - --providers.swarm.refreshSeconds=10
       - --entryPoints.web.address=:80
+      - --entryPoints.traefik.address=:8080   # administration : non publie
       - --api.dashboard=true
-      - --api.insecure=true          # TP uniquement : jamais en production
       - --accesslog=true
       - --metrics.prometheus=true
     ports:
-      - { target: 80,   published: 80,   mode: ingress }
-      - { target: 8080, published: 8088, mode: ingress }   # tableau de bord
+      - { target: 80, published: 80, mode: ingress }
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    secrets: [edge_admin_htpasswd]
     networks: [public]
     deploy:
       replicas: 1
       placement:
         constraints: [node.role == manager]   # le provider lit l'API du cluster
       update_config: { order: start-first, failure_action: rollback }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.admin.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)
+        - traefik.http.routers.admin.entrypoints=traefik
+        - traefik.http.routers.admin.service=api@internal
+        - traefik.http.routers.admin.middlewares=admin-auth
+        - traefik.http.middlewares.admin-auth.basicauth.usersfile=/run/secrets/edge_admin_htpasswd
+        # Le provider swarm exige un port, meme si le routeur vise api@internal.
+        - traefik.http.services.admin.loadbalancer.server.port=8080
 
 networks:
   public:
     driver: overlay
     attachable: true
+
+secrets:
+  edge_admin_htpasswd: { external: true }
