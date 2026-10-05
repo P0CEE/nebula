@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Prepare les VM creees par create-vms.py : Docker, registry authentifie,
 # cluster Swarm (1 manager + 2 workers), etiquette du noeud de donnees,
-# secrets. Idempotent : peut etre relance sans risque.
+# secrets, certificat HTTPS, redirection du routeur, contextes Docker du poste.
+# Idempotent : peut etre relance sans risque.
 #   ./cluster/bootstrap.sh
-# Prerequis : hotes SSH swarm-1, swarm-2, swarm-3, registry (voir README).
+# Prerequis : hotes SSH lab-router, swarm-1..3, registry ; docker et mkcert
+# sur le poste (mkcert -install fait une fois).
 set -euo pipefail
 MANAGER=swarm-1; MANAGER_IP=10.96.252.11
 WORKERS=(swarm-2 swarm-3); DATA_NODE=swarm-3
@@ -47,10 +49,14 @@ if ! docker inspect registry -f "{{.Config.Env}}" 2>/dev/null | grep -q REGISTRY
 fi
 echo "  registry: $(docker ps -f name=registry --format "{{.Image}} {{.Status}}")"' < "$CREDS/registry-password"
 
-# Le registry construit et pousse, le manager deploie : les deux se connectent.
-for h in "$REGISTRY_HOST" "$MANAGER"; do
-  ssh "$h" "docker login $REGISTRY -u nebula --password-stdin >/dev/null 2>&1 && echo '  $h: connecte au registry'" < "$CREDS/registry-password"
+echo "== Contextes Docker du poste (exploitation a distance, rien sur les serveurs)"
+for c in nebula:swarm-1 nebula-data:swarm-3 nebula-registry:registry; do
+  docker context inspect "${c%%:*}" >/dev/null 2>&1 || docker context create "${c%%:*}" --docker "host=ssh://${c#*:}" >/dev/null
 done
+# Identifiants du registry stockes cote poste (trousseau), transmis aux noeuds
+# par 'stack deploy --with-registry-auth'.
+docker --context nebula login "$REGISTRY" -u nebula --password-stdin < "$CREDS/registry-password" >/dev/null
+echo "  contextes nebula, nebula-data, nebula-registry ; connecte au registry"
 
 echo "== Cluster Swarm"
 ssh "$MANAGER" "docker info -f '{{.Swarm.LocalNodeState}}' | grep -qx active || docker swarm init --advertise-addr $MANAGER_IP >/dev/null"
@@ -60,17 +66,17 @@ for w in "${WORKERS[@]}"; do
 done
 ssh "$MANAGER" "docker node update --label-add nebula.data=true $DATA_NODE >/dev/null"
 
-echo "== Routeur : port 80 du WAN -> cluster (nebula.local, traefik., rabbitmq.)"
-ssh lab-router "uci -q get firewall.nebula_http >/dev/null || {
-  uci set firewall.nebula_http=redirect
-  uci set firewall.nebula_http.name=nebula-http
-  uci set firewall.nebula_http.src=wan
-  uci set firewall.nebula_http.src_dport=80
-  uci set firewall.nebula_http.dest=lan
-  uci set firewall.nebula_http.dest_ip=$MANAGER_IP
-  uci set firewall.nebula_http.dest_port=80
-  uci set firewall.nebula_http.proto=tcp
-  uci set firewall.nebula_http.target=DNAT
+echo "== Routeur : port 443 du WAN -> cluster (nebula.local, traefik., rabbitmq.)"
+ssh lab-router "uci -q get firewall.nebula_https >/dev/null || {
+  uci set firewall.nebula_https=redirect
+  uci set firewall.nebula_https.name=nebula-https
+  uci set firewall.nebula_https.src=wan
+  uci set firewall.nebula_https.src_dport=443
+  uci set firewall.nebula_https.dest=lan
+  uci set firewall.nebula_https.dest_ip=$MANAGER_IP
+  uci set firewall.nebula_https.dest_port=443
+  uci set firewall.nebula_https.proto=tcp
+  uci set firewall.nebula_https.target=DNAT
   uci commit firewall && /etc/init.d/firewall reload
 }"
 
@@ -93,19 +99,12 @@ true
 EOF
 ssh "$MANAGER" 'read -r P; docker secret inspect edge_admin_htpasswd >/dev/null 2>&1 || printf "admin:%s\n" "$(printf %s "$P" | openssl passwd -apr1 -stdin)" | docker secret create edge_admin_htpasswd - >/dev/null' < "$CREDS/admin-password"
 
-ssh "$MANAGER" 'docker node ls; docker secret ls --format "  secret: {{.Name}}"'
+# Certificat HTTPS (autorite locale mkcert) : nebula.local et *.nebula.local.
+mkdir -p "$CREDS/tls"
+[ -s "$CREDS/tls/nebula.pem" ] || mkcert -cert-file "$CREDS/tls/nebula.pem" -key-file "$CREDS/tls/nebula-key.pem" nebula.local "*.nebula.local" 2>/dev/null
+docker --context nebula secret inspect edge_tls_cert >/dev/null 2>&1 || docker --context nebula secret create edge_tls_cert "$CREDS/tls/nebula.pem" >/dev/null
+docker --context nebula secret inspect edge_tls_key >/dev/null 2>&1 || docker --context nebula secret create edge_tls_key "$CREDS/tls/nebula-key.pem" >/dev/null
 
-echo "== Depot git sur les VM qui en ont besoin (cle de deploiement en lecture seule)"
-# swarm-1 deploie, swarm-3 sauvegarde/restaure, registry construit les images.
-REPO=${NEBULA_REPO:-P0CEE/nebula}
-for h in "$MANAGER" "$DATA_NODE" "$REGISTRY_HOST"; do
-  K=$(mktemp)
-  ssh "$h" '[ -f ~/.ssh/nebula_deploy ] || ssh-keygen -q -t ed25519 -N "" -C "nebula-deploy-$(hostname)" -f ~/.ssh/nebula_deploy; cat ~/.ssh/nebula_deploy.pub' > "$K"
-  gh repo deploy-key add "$K" --repo "$REPO" --title "nebula-$h" >/dev/null 2>&1 || true   # deja presente
-  rm -f "$K"
-  ssh "$h" "export GIT_SSH_COMMAND='ssh -i ~/.ssh/nebula_deploy -o StrictHostKeyChecking=accept-new'
-    if [ -d ~/nebula/.git ]; then git -C ~/nebula pull -q --ff-only
-    else rm -rf ~/nebula && git clone -q git@github.com:$REPO.git ~/nebula; fi
-    git -C ~/nebula config core.sshCommand 'ssh -i ~/.ssh/nebula_deploy'
-    echo \"  $h: ~/nebula @ \$(git -C ~/nebula rev-parse --short HEAD)\""
-done
+docker --context nebula node ls
+docker --context nebula secret ls --format "  secret: {{.Name}}"
+

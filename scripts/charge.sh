@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # Scenarios 6 et 7 : requetes continues sur les deux services routes pendant
 # <secondes>, puis bilan des codes HTTP et des versions vues.
-# A lancer sur une machine qui resout nebula.local (ex. la VM registry).
+# A lancer depuis une machine qui resout nebula.local.
 #   ./scripts/charge.sh 120
 set -euo pipefail
 D=${1:-120}; H=${HOST:-nebula.local}
 OUT=$(mktemp); END=$(( $(date +%s) + D ))
 while [ "$(date +%s)" -lt "$END" ]; do
   for u in /api/health /api/comptes/1; do
-    r=$(curl -s -m 3 -w " %{http_code}" "http://$H$u" || true)
+    r=$(curl -sk -m 3 -w " %{http_code}" "https://$H$u" || true)
     v=$(echo "$r" | sed -n 's/.*"version":"\([^"]*\)".*/\1/p')
     echo "$u ${r##* } $v" >> "$OUT"
   done

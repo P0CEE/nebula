@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# A lancer sur la VM registry (amd64, comme le cluster), dans le depot clone.
-# Construit les trois services et les pousse dans le registry, avec deux
+# Construit les trois services sur le moteur Docker de la VM registry
+# (contexte nebula-registry, amd64 comme le cluster) et les pousse, avec deux
 # tags : la version (v2) et l'empreinte du commit (v2-3f9c2ab).
-#   git pull && ./scripts/build-push.sh v2
+#   ./scripts/build-push.sh v2
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export DOCKER_CONTEXT=${DOCKER_CONTEXT:-nebula-registry}
+[ -z "$(git status --porcelain)" ] || { echo "arbre git modifie : commitez d'abord" >&2; exit 1; }
 REGISTRY=${REGISTRY:-10.96.252.20:5000}
 TAG=${1:-v1}
 SHA=$(git rev-parse --short HEAD)

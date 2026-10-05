@@ -161,7 +161,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.http.routers.bus-admin.rule=Host(`rabbitmq.nebula.local`)
-        - traefik.http.routers.bus-admin.entrypoints=web
+        - traefik.http.routers.bus-admin.entrypoints=websecure
         - traefik.http.services.bus-admin.loadbalancer.server.port=15672
         - traefik.swarm.lbswarm=true
 
@@ -176,7 +176,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.http.routers.comptes.rule=Host(`nebula.local`) && PathPrefix(`/api/comptes`)
-        - traefik.http.routers.comptes.entrypoints=web
+        - traefik.http.routers.comptes.entrypoints=websecure
         - traefik.http.routers.comptes.middlewares=comptes-strip
         - traefik.http.middlewares.comptes-strip.stripprefix.prefixes=/api
         - traefik.http.services.comptes.loadbalancer.server.port=3000
@@ -206,7 +206,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.http.routers.publications.rule=Host(`nebula.local`) && (PathPrefix(`/api/publications`) || Path(`/api/fil`) || Path(`/api/health`))
-        - traefik.http.routers.publications.entrypoints=web
+        - traefik.http.routers.publications.entrypoints=websecure
         - traefik.http.routers.publications.middlewares=publications-strip
         - traefik.http.middlewares.publications-strip.stripprefix.prefixes=/api
         - traefik.http.services.publications.loadbalancer.server.port=3000

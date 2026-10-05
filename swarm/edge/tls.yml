@@ -1,0 +1,7 @@
+# Configuration dynamique Traefik : certificat par defaut (secrets Swarm).
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /run/secrets/edge_tls_cert
+        keyFile: /run/secrets/edge_tls_key

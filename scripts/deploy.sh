@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# A lancer sur le manager (swarm-1), dans le depot clone.
-# Deploie ou met a jour edge puis nebula. Sert au deploiement initial, aux
-# mises a jour et au retour arriere (redeployer l'ancien tag).
-#   git pull && ./scripts/deploy.sh v2
+# Deploie ou met a jour edge puis nebula sur le cluster (contexte Docker
+# nebula = manager swarm-1). Sert au deploiement initial, aux mises a jour et
+# au retour arriere (redeployer l'ancien tag).
+#   ./scripts/deploy.sh v2
 set -euo pipefail
 cd "$(dirname "$0")/.."
 TAG=${1:?usage: deploy.sh <tag-image>}
 REGISTRY=${REGISTRY:-10.96.252.20:5000}
+export DOCKER_CONTEXT=${DOCKER_CONTEXT:-nebula}
 
 # edge cree edge_public ; juste apres un 'stack rm', le reseau peut encore
 # etre en cours de suppression : on reessaie.
