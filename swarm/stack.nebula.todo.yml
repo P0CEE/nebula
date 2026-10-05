@@ -1,0 +1,218 @@
+# ===========================================================================
+# NEBULA : le livrable du projet. 12 TODO.
+#
+#   export REGISTRY=registry.local:5000 TAG=v1
+#   docker stack deploy -c swarm/stack.nebula.todo.yml --with-registry-auth nebula
+#
+# Les trois services applicatifs sont ecrits et fonctionnent : vous ne touchez
+# pas a leur code. Tout ce qui est note est ici, dans ce fichier et dans vos
+# procedures.
+#
+# Rappel du bareme : aucun point pour le nombre de services. Cinq services
+# parfaitement exploites valent mieux que huit inexploitables.
+# ===========================================================================
+#
+# Prerequis (hors depot, une seule fois) :
+#   docker node update --label-add nebula.data=true <noeud-donnees>
+#   docker secret create nebula_db_password    -   (mot de passe Postgres)
+#   docker secret create nebula_cache_password -   (mot de passe Redis)
+#   docker secret create nebula_bus_password   -   (mot de passe RabbitMQ)
+#   docker secret create nebula_bus_conf       -   (default_user/default_pass)
+# ===========================================================================
+
+# --- Services sans etat : 3 replicas, jamais sur le noeud de donnees,
+# --- mise a jour progressive start-first, retour arriere automatique.
+x-deploy-app: &deploy_app
+  replicas: 3
+  placement:
+    constraints: [node.labels.nebula.data != true]
+  update_config:
+    parallelism: 1
+    delay: 10s
+    order: start-first        # la nouvelle tache est saine avant l'arret de l'ancienne
+    monitor: 30s
+    failure_action: rollback  # echec de sonde pendant la mise a jour => retour arriere
+    max_failure_ratio: 0
+  rollback_config:
+    parallelism: 1
+    order: start-first
+    monitor: 30s
+    failure_action: pause
+  restart_policy: { condition: any, delay: 5s }
+  resources:
+    limits: { cpus: "0.50", memory: 256M }
+    reservations: { memory: 64M }
+
+# --- Services avec etat : 1 replica, epingle sur le noeud etiquete.
+# --- stop-first obligatoire : jamais deux instances sur le meme volume.
+x-deploy-data: &deploy_data
+  replicas: 1
+  placement:
+    constraints: [node.labels.nebula.data == true]
+  update_config: { order: stop-first, failure_action: rollback, monitor: 60s }
+  rollback_config: { order: stop-first }
+  restart_policy: { condition: any, delay: 5s }
+
+x-db-env: &db_env
+  PGHOST: db
+  POSTGRES_DB: nebula
+  POSTGRES_USER: nebula
+  POSTGRES_PASSWORD_FILE: /run/secrets/nebula_db_password
+
+services:
+  # ------------------------------------------------------------ donnees
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: nebula
+      POSTGRES_USER: nebula
+      POSTGRES_PASSWORD_FILE: /run/secrets/nebula_db_password
+    secrets: [nebula_db_password]
+    configs:
+      - { source: db_init, target: /docker-entrypoint-initdb.d/init.sql }
+    volumes:
+      # Postgres 18 : la racine /var/lib/postgresql, PAS .../data.
+      - db_data:/var/lib/postgresql
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nebula -d nebula"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    stop_grace_period: 30s
+    deploy:
+      <<: *deploy_data
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+
+  bus:
+    image: rabbitmq:4-management-alpine
+    # RabbitMQ range ses donnees sous mnesia/rabbit@<hostname>. Sans hostname
+    # fixe, chaque nouvelle tache a un nom different et repart d'une file vide.
+    hostname: bus
+    secrets:
+      # Les variables *_FILE sont refusees par l'image 4.x : on passe par conf.d.
+      - { source: nebula_bus_conf, target: /etc/rabbitmq/conf.d/90-nebula.conf }
+    volumes:
+      - bus_data:/var/lib/rabbitmq
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    stop_grace_period: 30s
+    deploy:
+      <<: *deploy_data
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+
+  cache:
+    image: redis:7-alpine
+    command:
+      - sh
+      - -c
+      - exec redis-server --save "" --appendonly no --requirepass "$$(cat /run/secrets/nebula_cache_password)"
+    secrets: [nebula_cache_password]
+    volumes:
+      # Donnees volatiles : tmpfs sur le VOLUME /data de l'image, sinon Swarm
+      # cree un volume anonyme a chaque nouvelle tache.
+      - { type: tmpfs, target: /data }
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$(cat /run/secrets/nebula_cache_password) redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      replicas: 1
+      restart_policy: { condition: any, delay: 5s }
+      resources:
+        limits: { cpus: "0.50", memory: 128M }
+
+  # ------------------------------------------------------------ applicatif
+  comptes:
+    image: ${REGISTRY}/nebula-comptes:${TAG}
+    environment: *db_env
+    secrets: [nebula_db_password]
+    networks: [public, internal]
+    deploy:
+      <<: *deploy_app
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.comptes.rule=Host(`nebula.local`) && PathPrefix(`/api/comptes`)
+        - traefik.http.routers.comptes.entrypoints=web
+        - traefik.http.routers.comptes.middlewares=comptes-strip
+        - traefik.http.middlewares.comptes-strip.stripprefix.prefixes=/api
+        - traefik.http.services.comptes.loadbalancer.server.port=3000
+
+  publications:
+    image: ${REGISTRY}/nebula-publications:${TAG}
+    # L'appli lit des URL completes : on les assemble depuis les secrets au
+    # demarrage, pour qu'aucun mot de passe n'apparaisse dans ce fichier.
+    command:
+      - sh
+      - -c
+      - >-
+        export AMQP_URL="amqp://nebula:$$(cat /run/secrets/nebula_bus_password)@bus:5672"
+        REDIS_URL="redis://:$$(cat /run/secrets/nebula_cache_password)@cache:6379"
+        && exec node src/index.js
+    environment:
+      <<: *db_env
+      COMPTES_URL: http://comptes:3000
+    secrets: [nebula_db_password, nebula_bus_password, nebula_cache_password]
+    networks: [public, internal]
+    deploy:
+      <<: *deploy_app
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.publications.rule=Host(`nebula.local`) && (PathPrefix(`/api/publications`) || Path(`/api/fil`) || Path(`/api/health`))
+        - traefik.http.routers.publications.entrypoints=web
+        - traefik.http.routers.publications.middlewares=publications-strip
+        - traefik.http.middlewares.publications-strip.stripprefix.prefixes=/api
+        - traefik.http.services.publications.loadbalancer.server.port=3000
+
+  worker-medias:
+    image: ${REGISTRY}/nebula-worker-medias:${TAG}
+    command:
+      - sh
+      - -c
+      - export AMQP_URL="amqp://nebula:$$(cat /run/secrets/nebula_bus_password)@bus:5672" && exec node src/index.js
+    environment:
+      SORTIE_DIR: /data
+    secrets: [nebula_bus_password]
+    volumes:
+      # Volume local : une copie par noeud qui heberge un worker. Chaque trace
+      # porte un nom unique (publication-<id>.json), pas de conflit.
+      - traces:/data
+    networks: [internal]
+    deploy: *deploy_app
+
+# ------------------------------------------------------------ reseaux
+networks:
+  # Flux public : Traefik et les seuls services qu'il route.
+  public:
+    external: true
+    name: edge_public
+  # Echanges internes : db, bus et cache ne sont QUE sur ce reseau.
+  # internal: true => aucune sortie vers l'exterieur depuis ce reseau.
+  internal:
+    driver: overlay
+    internal: true
+
+volumes:
+  db_data:
+  bus_data:
+  traces:
+
+configs:
+  db_init:
+    file: ../db/init.sql
+
+secrets:
+  nebula_db_password:    { external: true }
+  nebula_cache_password: { external: true }
+  nebula_bus_password:   { external: true }
+  nebula_bus_conf:       { external: true }
