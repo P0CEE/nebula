@@ -155,6 +155,27 @@ services:
       resources:
         limits: { cpus: "0.50", memory: 128M }
 
+  # Interface d'administration RabbitMQ sur rabbitmq.nebula.local. Le bus
+  # reste SEULEMENT sur le reseau interne : ce relais est sur les deux
+  # reseaux et ne transmet que le port 15672 (jamais 5672).
+  bus-admin:
+    image: alpine/socat:1.8.0.3
+    command: ["TCP-LISTEN:15672,fork,reuseaddr", "TCP:bus:15672"]
+    networks: [public, internal]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.nebula.data != true]
+      restart_policy: { condition: any, delay: 5s }
+      resources:
+        limits: { cpus: "0.25", memory: 32M }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.bus-admin.rule=Host(`rabbitmq.nebula.local`)
+        - traefik.http.routers.bus-admin.entrypoints=web
+        - traefik.http.services.bus-admin.loadbalancer.server.port=15672
+        - traefik.swarm.lbswarm=true
+
   # ------------------------------------------------------------ applicatif
   comptes:
     image: ${REGISTRY}/nebula-comptes:${TAG}

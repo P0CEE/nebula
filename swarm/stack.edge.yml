@@ -11,9 +11,8 @@
 #   - traefik v3.3 -> v3.6.25 : v3.3 parle l'API Docker 1.24, refusee par
 #     Docker 29 (minimum 1.40). Avec v3.3, Traefik ne voit aucun service.
 #   - port 8088 et --api.insecure retires : un seul port publie (80).
-#   - tableau de bord sur l'entrypoint "traefik" (:8080) NON publie, protege
-#     par mot de passe (secret edge_admin_htpasswd). Acces uniquement par
-#     tunnel SSH vers le manager : scripts/admin-tunnel.sh.
+#   - tableau de bord sur le sous-domaine traefik.nebula.local (port 80),
+#     protege par mot de passe (secret edge_admin_htpasswd).
 # ===========================================================================
 services:
   traefik:
@@ -28,7 +27,6 @@ services:
       # Pas de connexion persistante vers les services : l'IP virtuelle Swarm
       # repartit par connexion, donc une connexion par requete = repartition.
       - --serversTransport.maxIdleConnsPerHost=-1
-      - --entryPoints.traefik.address=:8080   # administration : non publie
       - --api.dashboard=true
       - --accesslog=true
       - --metrics.prometheus=true
@@ -45,8 +43,8 @@ services:
       update_config: { order: start-first, failure_action: rollback }
       labels:
         - traefik.enable=true
-        - traefik.http.routers.admin.rule=PathPrefix(`/api`) || PathPrefix(`/dashboard`)
-        - traefik.http.routers.admin.entrypoints=traefik
+        - traefik.http.routers.admin.rule=Host(`traefik.nebula.local`)
+        - traefik.http.routers.admin.entrypoints=web
         - traefik.http.routers.admin.service=api@internal
         - traefik.http.routers.admin.middlewares=admin-auth
         - traefik.http.middlewares.admin-auth.basicauth.usersfile=/run/secrets/edge_admin_htpasswd

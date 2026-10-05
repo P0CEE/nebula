@@ -60,6 +60,20 @@ for w in "${WORKERS[@]}"; do
 done
 ssh "$MANAGER" "docker node update --label-add nebula.data=true $DATA_NODE >/dev/null"
 
+echo "== Routeur : port 80 du WAN -> cluster (nebula.local, traefik., rabbitmq.)"
+ssh lab-router "uci -q get firewall.nebula_http >/dev/null || {
+  uci set firewall.nebula_http=redirect
+  uci set firewall.nebula_http.name=nebula-http
+  uci set firewall.nebula_http.src=wan
+  uci set firewall.nebula_http.src_dport=80
+  uci set firewall.nebula_http.dest=lan
+  uci set firewall.nebula_http.dest_ip=$MANAGER_IP
+  uci set firewall.nebula_http.dest_port=80
+  uci set firewall.nebula_http.proto=tcp
+  uci set firewall.nebula_http.target=DNAT
+  uci commit firewall && /etc/init.d/firewall reload
+}"
+
 echo "== Secrets (generes sur le manager, jamais affiches)"
 ssh "$MANAGER" 'bash -s' <<'EOF'
 set -e
