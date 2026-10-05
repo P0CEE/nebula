@@ -8,10 +8,10 @@ Pointilles : reseau `edge_public`. Traits pleins : reseau `nebula_internal` (`in
 flowchart TB
   subgraph swarm["Cluster Swarm : 1 manager + 2 workers (2377/tcp, 7946/tcp+udp, 4789/udp)"]
     direction TB
-    ingress(("port 80<br/>SEUL port publie"))
+    ingress(("port 443 (HTTPS)<br/>SEUL port publie"))
 
     subgraph s1["swarm-1 10.96.252.11 - manager"]
-      traefik["edge_traefik :80<br/>nebula.test<br/>traefik.nebula.test (mdp)"]
+      traefik["edge_traefik :443<br/>nebula.test<br/>traefik.nebula.test (mdp)"]
     end
     subgraph s12["swarm-1 + swarm-2 (nebula.data != true)"]
       comptes["comptes x3"]
@@ -44,4 +44,4 @@ flowchart TB
 |---|---|---|
 | `edge_public` (overlay) | traefik, comptes, publications, bus-admin | Traefik uniquement |
 | `nebula_internal` (overlay, `internal: true`) | comptes, publications, worker, db, bus, cache, bus-admin | services internes ; aucune sortie Internet |
-| Port publie | 80 (Traefik, routing mesh) | sur les 3 noeuds |
+| Port publie | 443 HTTPS (Traefik, routing mesh) | sur les 3 noeuds |
