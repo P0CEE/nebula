@@ -170,6 +170,9 @@ services:
         - traefik.http.routers.comptes.middlewares=comptes-strip
         - traefik.http.middlewares.comptes-strip.stripprefix.prefixes=/api
         - traefik.http.services.comptes.loadbalancer.server.port=3000
+        # Passer par l'IP virtuelle Swarm : une tache qui s'arrete est retiree
+        # du pool AVANT l'arret, au lieu d'attendre le rafraichissement Traefik.
+        - traefik.swarm.lbswarm=true
 
   publications:
     image: ${REGISTRY}/nebula-publications:${TAG}
@@ -197,6 +200,7 @@ services:
         - traefik.http.routers.publications.middlewares=publications-strip
         - traefik.http.middlewares.publications-strip.stripprefix.prefixes=/api
         - traefik.http.services.publications.loadbalancer.server.port=3000
+        - traefik.swarm.lbswarm=true
 
   worker-medias:
     image: ${REGISTRY}/nebula-worker-medias:${TAG}
