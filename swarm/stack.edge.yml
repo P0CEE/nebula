@@ -25,6 +25,9 @@ services:
       - --providers.swarm.network=edge_public
       - --providers.swarm.refreshSeconds=10
       - --entryPoints.web.address=:80
+      # Pas de connexion persistante vers les services : l'IP virtuelle Swarm
+      # repartit par connexion, donc une connexion par requete = repartition.
+      - --serversTransport.maxIdleConnsPerHost=-1
       - --entryPoints.traefik.address=:8080   # administration : non publie
       - --api.dashboard=true
       - --accesslog=true
