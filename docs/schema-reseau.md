@@ -11,13 +11,13 @@ flowchart TB
     ingress(("port 80<br/>SEUL port publie"))
 
     subgraph s1["swarm-1 10.96.252.11 - manager"]
-      traefik["edge_traefik :80<br/>nebula.local<br/>traefik.nebula.local (mdp)"]
+      traefik["edge_traefik :80<br/>nebula.test<br/>traefik.nebula.test (mdp)"]
     end
     subgraph s12["swarm-1 + swarm-2 (nebula.data != true)"]
       comptes["comptes x3"]
       publications["publications x3"]
       worker["worker-medias x3<br/>vol. traces (par noeud)"]
-      busadmin["bus-admin (relais)<br/>rabbitmq.nebula.local -> bus:15672"]
+      busadmin["bus-admin (relais)<br/>rabbitmq.nebula.test -> bus:15672"]
     end
     subgraph s3["swarm-3 10.96.252.13 - nebula.data=true"]
       db[("db Postgres 18<br/>vol. db_data")]
@@ -29,7 +29,7 @@ flowchart TB
   ingress --> traefik
   traefik -. "/api/comptes" .-> comptes
   traefik -. "/api/publications, /api/fil, /api/health" .-> publications
-  traefik -. "rabbitmq.nebula.local" .-> busadmin
+  traefik -. "rabbitmq.nebula.test" .-> busadmin
 
   comptes --> db
   publications --> comptes

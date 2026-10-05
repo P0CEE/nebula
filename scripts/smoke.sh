@@ -2,7 +2,7 @@
 # Verifie la chaine complete : comptes -> publications -> bus -> worker -> medias
 #   ./scripts/smoke.sh [hote]
 set -euo pipefail
-H=${1:-nebula.local}
+H=${1:-nebula.test}
 B="https://$H"
 ok=0
 

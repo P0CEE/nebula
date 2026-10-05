@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Scenarios 6 et 7 : requetes continues sur les deux services routes pendant
 # <secondes>, puis bilan des codes HTTP et des versions vues.
-# A lancer depuis une machine qui resout nebula.local.
+# A lancer depuis une machine qui resout nebula.test.
 #   ./scripts/charge.sh 120
 set -euo pipefail
-D=${1:-120}; H=${HOST:-nebula.local}
+D=${1:-120}; H=${HOST:-nebula.test}
 OUT=$(mktemp); END=$(( $(date +%s) + D ))
 while [ "$(date +%s)" -lt "$END" ]; do
   for u in /api/health /api/comptes/1; do

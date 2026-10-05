@@ -144,7 +144,7 @@ services:
       resources:
         limits: { cpus: "0.50", memory: 128M }
 
-  # Interface d'administration RabbitMQ sur rabbitmq.nebula.local. Le bus
+  # Interface d'administration RabbitMQ sur rabbitmq.nebula.test. Le bus
   # reste SEULEMENT sur le reseau interne : ce relais est sur les deux
   # reseaux et ne transmet que le port 15672 (jamais 5672).
   bus-admin:
@@ -160,7 +160,7 @@ services:
         limits: { cpus: "0.25", memory: 32M }
       labels:
         - traefik.enable=true
-        - traefik.http.routers.bus-admin.rule=Host(`rabbitmq.nebula.local`)
+        - traefik.http.routers.bus-admin.rule=Host(`rabbitmq.nebula.test`)
         - traefik.http.routers.bus-admin.entrypoints=websecure
         - traefik.http.services.bus-admin.loadbalancer.server.port=15672
         - traefik.swarm.lbswarm=true
@@ -175,7 +175,7 @@ services:
       <<: *deploy_app
       labels:
         - traefik.enable=true
-        - traefik.http.routers.comptes.rule=Host(`nebula.local`) && PathPrefix(`/api/comptes`)
+        - traefik.http.routers.comptes.rule=Host(`nebula.test`) && PathPrefix(`/api/comptes`)
         - traefik.http.routers.comptes.entrypoints=websecure
         - traefik.http.routers.comptes.middlewares=comptes-strip
         - traefik.http.middlewares.comptes-strip.stripprefix.prefixes=/api
@@ -205,7 +205,7 @@ services:
       <<: *deploy_app
       labels:
         - traefik.enable=true
-        - traefik.http.routers.publications.rule=Host(`nebula.local`) && (PathPrefix(`/api/publications`) || Path(`/api/fil`) || Path(`/api/health`))
+        - traefik.http.routers.publications.rule=Host(`nebula.test`) && (PathPrefix(`/api/publications`) || Path(`/api/fil`) || Path(`/api/health`))
         - traefik.http.routers.publications.entrypoints=websecure
         - traefik.http.routers.publications.middlewares=publications-strip
         - traefik.http.middlewares.publications-strip.stripprefix.prefixes=/api

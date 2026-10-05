@@ -66,7 +66,7 @@ for w in "${WORKERS[@]}"; do
 done
 ssh "$MANAGER" "docker node update --label-add nebula.data=true $DATA_NODE >/dev/null"
 
-echo "== Routeur : port 443 du WAN -> cluster (nebula.local, traefik., rabbitmq.)"
+echo "== Routeur : port 443 du WAN -> cluster (nebula.test, traefik., rabbitmq.)"
 ssh lab-router "uci -q get firewall.nebula_https >/dev/null || {
   uci set firewall.nebula_https=redirect
   uci set firewall.nebula_https.name=nebula-https
@@ -99,9 +99,9 @@ true
 EOF
 ssh "$MANAGER" 'read -r P; docker secret inspect edge_admin_htpasswd >/dev/null 2>&1 || printf "admin:%s\n" "$(printf %s "$P" | openssl passwd -apr1 -stdin)" | docker secret create edge_admin_htpasswd - >/dev/null' < "$CREDS/admin-password"
 
-# Certificat HTTPS (autorite locale mkcert) : nebula.local et *.nebula.local.
+# Certificat HTTPS (autorite locale mkcert) : nebula.test et *.nebula.test.
 mkdir -p "$CREDS/tls"
-[ -s "$CREDS/tls/nebula.pem" ] || mkcert -cert-file "$CREDS/tls/nebula.pem" -key-file "$CREDS/tls/nebula-key.pem" nebula.local "*.nebula.local" 2>/dev/null
+[ -s "$CREDS/tls/nebula.pem" ] && openssl x509 -in "$CREDS/tls/nebula.pem" -noout -ext subjectAltName | grep -q "nebula.test" || mkcert -cert-file "$CREDS/tls/nebula.pem" -key-file "$CREDS/tls/nebula-key.pem" nebula.test "*.nebula.test" 2>/dev/null
 docker --context nebula secret inspect edge_tls_cert >/dev/null 2>&1 || docker --context nebula secret create edge_tls_cert "$CREDS/tls/nebula.pem" >/dev/null
 docker --context nebula secret inspect edge_tls_key >/dev/null 2>&1 || docker --context nebula secret create edge_tls_key "$CREDS/tls/nebula-key.pem" >/dev/null
 

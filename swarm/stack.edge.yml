@@ -12,7 +12,7 @@
 #     Docker 29 (minimum 1.40). Avec v3.3, Traefik ne voit aucun service.
 #   - HTTPS uniquement : seul le port 443 est publie (ni 80, ni 8088,
 #     --api.insecure retire). Certificat dans les secrets edge_tls_cert/key.
-#   - tableau de bord sur traefik.nebula.local, protege par mot de passe
+#   - tableau de bord sur traefik.nebula.test, protege par mot de passe
 #     (secret edge_admin_htpasswd).
 # ===========================================================================
 services:
@@ -48,7 +48,7 @@ services:
       update_config: { order: start-first, failure_action: rollback }
       labels:
         - traefik.enable=true
-        - traefik.http.routers.admin.rule=Host(`traefik.nebula.local`)
+        - traefik.http.routers.admin.rule=Host(`traefik.nebula.test`)
         - traefik.http.routers.admin.entrypoints=websecure
         - traefik.http.routers.admin.service=api@internal
         - traefik.http.routers.admin.middlewares=admin-auth
