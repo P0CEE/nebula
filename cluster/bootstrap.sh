@@ -70,7 +70,10 @@ done
 if absent nebula_bus_password; then
   P=$(openssl rand -hex 24)
   printf %s "$P" | docker secret create nebula_bus_password - >/dev/null
-  printf 'default_user = nebula\ndefault_pass = %s\n' "$P" | docker secret create nebula_bus_conf - >/dev/null
+  # Definitions RabbitMQ : utilisateur nebula + hash sha256 sale du mot de passe.
+  H=$(printf %s "$P" | python3 -c 'import os,hashlib,base64,sys;p=sys.stdin.buffer.read();s=os.urandom(4);print(base64.b64encode(s+hashlib.sha256(s+p).digest()).decode())')
+  printf '{"vhosts":[{"name":"/"}],"users":[{"name":"nebula","password_hash":"%s","hashing_algorithm":"rabbit_password_hashing_sha256","tags":["administrator"]}],"permissions":[{"user":"nebula","vhost":"/","configure":".*","write":".*","read":".*"}]}\n' "$H" \
+    | docker secret create nebula_bus_users - >/dev/null
 fi
 true
 EOF

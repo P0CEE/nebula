@@ -17,7 +17,8 @@
 #   docker secret create nebula_db_password    -   (mot de passe Postgres)
 #   docker secret create nebula_cache_password -   (mot de passe Redis)
 #   docker secret create nebula_bus_password   -   (mot de passe RabbitMQ)
-#   docker secret create nebula_bus_conf       -   (default_user/default_pass)
+#   docker secret create nebula_bus_users      -   (definitions RabbitMQ : utilisateur + hash)
+# cluster/bootstrap.sh fait tout cela.
 # ===========================================================================
 
 # --- Services sans etat : 3 replicas, jamais sur le noeud de donnees,
@@ -52,6 +53,21 @@ x-deploy-data: &deploy_data
   update_config: { order: stop-first, failure_action: rollback, monitor: 60s }
   rollback_config: { order: stop-first }
   restart_policy: { condition: any, delay: 5s }
+
+# --- Sonde des services relies au bus. L'appli ne se reconnecte pas si le
+# --- bus redemarre, et /health reste a 200 : on exige en plus une connexion
+# --- TCP etablie vers le port 5672 (0x1628, etat 01). Sinon la tache devient
+# --- unhealthy, Swarm la remplace, et l'appli se reconnecte au demarrage.
+x-health-bus: &health_bus
+  test:
+    - CMD-SHELL
+    - >-
+      node -e "require('node:http').get('http://127.0.0.1:3000/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      && grep -qE ':1628 01 ' /proc/net/tcp
+  interval: 10s
+  timeout: 3s
+  retries: 3
+  start_period: 60s
 
 x-db-env: &db_env
   PGHOST: db
@@ -91,9 +107,16 @@ services:
     # RabbitMQ range ses donnees sous mnesia/rabbit@<hostname>. Sans hostname
     # fixe, chaque nouvelle tache a un nom different et repart d'une file vide.
     hostname: bus
+    # Definitions chargees a chaque demarrage depuis un dossier : la topologie
+    # (files + politique des messages en erreur) est versionnee, l'utilisateur
+    # (hash du mot de passe) est un secret. Les variables *_FILE sont refusees
+    # par l'image 4.x, et charger des definitions desactive l'utilisateur par
+    # defaut : il est donc declare dans le secret.
+    configs:
+      - { source: bus_definitions_conf, target: /etc/rabbitmq/conf.d/20-definitions.conf }
+      - { source: bus_topologie, target: /etc/rabbitmq/definitions/10-topologie.json }
     secrets:
-      # Les variables *_FILE sont refusees par l'image 4.x : on passe par conf.d.
-      - { source: nebula_bus_conf, target: /etc/rabbitmq/conf.d/90-nebula.conf }
+      - { source: nebula_bus_users, target: /etc/rabbitmq/definitions/20-utilisateurs.json }
     volumes:
       - bus_data:/var/lib/rabbitmq
     networks: [internal]
@@ -163,6 +186,7 @@ services:
       <<: *db_env
       COMPTES_URL: http://comptes:3000
     secrets: [nebula_db_password, nebula_bus_password, nebula_cache_password]
+    healthcheck: *health_bus
     networks: [public, internal]
     deploy:
       <<: *deploy_app
@@ -187,6 +211,7 @@ services:
       # Volume local : une copie par noeud qui heberge un worker. Chaque trace
       # porte un nom unique (publication-<id>.json), pas de conflit.
       - traces:/data
+    healthcheck: *health_bus
     networks: [internal]
     deploy: *deploy_app
 
@@ -210,9 +235,13 @@ volumes:
 configs:
   db_init:
     file: ../db/init.sql
+  bus_definitions_conf:
+    file: ./bus/20-definitions.conf
+  bus_topologie:
+    file: ./bus/10-topologie.json
 
 secrets:
   nebula_db_password:    { external: true }
   nebula_cache_password: { external: true }
   nebula_bus_password:   { external: true }
-  nebula_bus_conf:       { external: true }
+  nebula_bus_users:      { external: true }
