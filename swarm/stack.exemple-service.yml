@@ -1,0 +1,35 @@
+# ===========================================================================
+# Modele pour ajouter un 8e service (scenario 10) sans toucher aux 7 autres
+# ni a edge : sa propre stack, les reseaux existants, son routage en labels.
+#   1. copier ce fichier, remplacer "notifications" par le nom du service
+#   2. image (tag immuable), port, route
+#   3. docker stack deploy -c swarm/stack.<service>.yml <service>
+# Besoin de la base ou du bus : ajouter les secrets (external) comme dans
+# stack.nebula.todo.yml. Sans route publique : retirer "public" et les labels.
+# ===========================================================================
+services:
+  notifications:
+    image: traefik/whoami:v1.11
+    networks: [public, internal]
+    deploy:
+      replicas: 2
+      placement:
+        constraints: [node.labels.nebula.data != true]
+      update_config: { order: start-first, failure_action: rollback }
+      restart_policy: { condition: any, delay: 5s }
+      resources:
+        limits: { cpus: "0.25", memory: 64M }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.notifications.rule=Host(`nebula.local`) && PathPrefix(`/api/notifications`)
+        - traefik.http.routers.notifications.entrypoints=web
+        - traefik.http.services.notifications.loadbalancer.server.port=80
+        - traefik.swarm.lbswarm=true
+
+networks:
+  public:
+    external: true
+    name: edge_public
+  internal:
+    external: true
+    name: nebula_internal
