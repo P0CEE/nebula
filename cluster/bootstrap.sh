@@ -94,3 +94,18 @@ EOF
 ssh "$MANAGER" 'read -r P; docker secret inspect edge_admin_htpasswd >/dev/null 2>&1 || printf "admin:%s\n" "$(printf %s "$P" | openssl passwd -apr1 -stdin)" | docker secret create edge_admin_htpasswd - >/dev/null' < "$CREDS/admin-password"
 
 ssh "$MANAGER" 'docker node ls; docker secret ls --format "  secret: {{.Name}}"'
+
+echo "== Depot git sur les VM qui en ont besoin (cle de deploiement en lecture seule)"
+# swarm-1 deploie, swarm-3 sauvegarde/restaure, registry construit les images.
+REPO=${NEBULA_REPO:-P0CEE/nebula}
+for h in "$MANAGER" "$DATA_NODE" "$REGISTRY_HOST"; do
+  K=$(mktemp)
+  ssh "$h" '[ -f ~/.ssh/nebula_deploy ] || ssh-keygen -q -t ed25519 -N "" -C "nebula-deploy-$(hostname)" -f ~/.ssh/nebula_deploy; cat ~/.ssh/nebula_deploy.pub' > "$K"
+  gh repo deploy-key add "$K" --repo "$REPO" --title "nebula-$h" >/dev/null 2>&1 || true   # deja presente
+  rm -f "$K"
+  ssh "$h" "export GIT_SSH_COMMAND='ssh -i ~/.ssh/nebula_deploy -o StrictHostKeyChecking=accept-new'
+    if [ -d ~/nebula/.git ]; then git -C ~/nebula pull -q --ff-only
+    else rm -rf ~/nebula && git clone -q git@github.com:$REPO.git ~/nebula; fi
+    git -C ~/nebula config core.sshCommand 'ssh -i ~/.ssh/nebula_deploy'
+    echo \"  $h: ~/nebula @ \$(git -C ~/nebula rev-parse --short HEAD)\""
+done

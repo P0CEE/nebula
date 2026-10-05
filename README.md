@@ -1,67 +1,15 @@
-# Nebula : squelette de projet
+# Nebula
 
-> Exploitation (quel script, quand) : [docs/exploitation.md](docs/exploitation.md). Schema reseau : [docs/schema-reseau.md](docs/schema-reseau.md).
+Reseau social minimal deploye sur un cluster Docker Swarm de trois VM
+(1 manager, 2 workers) + une VM registry a cote du cluster.
 
-**Les trois services applicatifs sont écrits et ils fonctionnent.** Vous ne
-touchez pas à leur code. Tout ce qui est noté est de l'infrastructure.
+- Exploitation, quel script lancer et ou : [docs/exploitation.md](docs/exploitation.md)
+- Schema du cluster : [docs/schema-reseau.md](docs/schema-reseau.md)
 
 ```
-services/comptes/         POST /comptes, GET /comptes/:id
-services/publications/    POST /publications (appelle comptes, publie un
-                          événement), GET /fil (cache Redis 30 s)
-services/worker-medias/   consomme les événements, écrit une trace par
-                          publication (traitement volontairement lent : 1,5 s)
+cluster/   creation des VM (Proxmox) et bootstrap du cluster
+swarm/     stacks : edge (Traefik), nebula (7 services + relais admin RabbitMQ)
+scripts/   build, deploiement, sauvegarde/restauration, tests
+services/  comptes, publications, worker-medias (Node.js)
+db/        schema initial Postgres
 ```
-
-Les quatre démonstrations exigées par le cahier des charges sont déjà dans
-le code : route de santé, flux entre services, écriture persistante,
-traitement asynchrone. À vous de les faire tourner **en cluster**.
-
----
-
-## Vérifier en 5 minutes que tout marche, hors Swarm
-
-```bash
-export NEBULA_DEV_PASSWORD=$(openssl rand -hex 12)   # jamais commite
-make dev
-curl -X POST localhost:3001/comptes -H 'content-type: application/json' -d '{"pseudo":"moi"}'
-curl -X POST localhost:3002/publications -H 'content-type: application/json' -d '{"auteur_id":1,"titre":"salut"}'
-curl localhost:3002/fil
-docker compose -f compose.dev.yml logs worker-medias
-```
-
-Vous devez voir le worker écrire un objet. Le worker écrit un fichier de trace par publication, dans son volume.
-Interface RabbitMQ : `http://localhost:15672` (nebula / mot de passe `$NEBULA_DEV_PASSWORD`).
-
-**Ce n'est pas le livrable.** C'est juste la preuve que le code n'est pas en
-cause quand quelque chose cassera en cluster.
-
----
-
-## Commandes
-
-```bash
-make dev        # local, hors Swarm
-make build      # construit et pousse les 3 images
-make edge       # deploie Traefik (fourni)
-make deploy     # deploie VOTRE stack
-make smoke      # verifie la chaine complete
-```
-
-Ajoutez sur votre poste : `<IP_NŒUD>  nebula.local`
-
----
-
-## Les ressources sont comptées
-
-Six services et trois machines virtuelles sur un seul poste. Déclarez des
-limites, sinon le noyau tue des conteneurs au hasard et vous chercherez une
-cause applicative qui n'existe pas.
-
-```yaml
-deploy:
-  resources:
-    limits: { memory: 256M }
-```
-
-Trois réplicas suffisent partout pour démontrer la répartition.

@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Construit les trois services et les pousse dans votre registry, avec deux
+# A lancer sur la VM registry (amd64, comme le cluster), dans le depot clone.
+# Construit les trois services et les pousse dans le registry, avec deux
 # tags : la version (v2) et l'empreinte du commit (v2-3f9c2ab).
-#   REGISTRY=10.96.252.20:5000 ./scripts/build-push.sh v2
-# Hors depot git (archive), passer l'empreinte : GIT_SHA=3f9c2ab ...
+#   git pull && ./scripts/build-push.sh v2
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export MSYS_NO_PATHCONV=1
-REGISTRY=${REGISTRY:-registry.local:5000}
+REGISTRY=${REGISTRY:-10.96.252.20:5000}
 TAG=${1:-v1}
-SHA=${GIT_SHA:-$(git rev-parse --short HEAD)}
+SHA=$(git rev-parse --short HEAD)
 
 for s in comptes publications worker-medias; do
   IMG="$REGISTRY/nebula-$s"

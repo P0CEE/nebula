@@ -27,5 +27,5 @@ done | sort | uniq -c
 echo
 echo "== preuve de l'asynchrone"
 echo "   docker service logs --tail 10 nebula_worker-medias"
-echo "   puis la console MinIO : un objet par publication"
+echo "   un fichier publication-<id>.json par publication dans le volume traces"
 exit $ok
