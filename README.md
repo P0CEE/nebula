@@ -1,5 +1,7 @@
 # Nebula : squelette de projet
 
+> Exploitation (quel script, quand) : [docs/exploitation.md](docs/exploitation.md). Schema reseau : [docs/schema-reseau.md](docs/schema-reseau.md).
+
 **Les trois services applicatifs sont écrits et ils fonctionnent.** Vous ne
 touchez pas à leur code. Tout ce qui est noté est de l'infrastructure.
 
