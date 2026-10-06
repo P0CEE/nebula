@@ -203,3 +203,37 @@ ajoute le secret `nebula_db_password` (external).
 
 Regle d'or : un « je ne sais pas » vaut mieux qu'une explication inventee ;
 on peut toujours verifier en direct (`docker service ps`, `docker service logs`).
+
+## 7. Questions frequentes
+
+**C'est quoi une « instance » ?** Une copie en marche d'un service, donc un
+conteneur. « publications x3 » = 3 conteneurs identiques, sur une ou plusieurs
+machines ; Swarm repartit les requetes entre eux. Dans le vocabulaire Swarm,
+une instance s'appelle une **tache** (task) : ce sont les cases du visualizer
+Portainer.
+
+**Ou est-il ecrit que swarm-3 stocke les donnees ?** En trois endroits qui
+vont ensemble :
+1. l'etiquette posee sur la machine (`cluster/bootstrap.sh`) :
+   `docker node update --label-add nebula.data=true swarm-3` ;
+2. la regle de placement de db et bus (`swarm/stack.nebula.todo.yml`, bloc
+   `x-deploy-data`) : `constraints: [node.labels.nebula.data == true]` ;
+3. leurs volumes (`db_data`, `bus_data`) : un volume Swarm est local a la
+   machine ou tourne la tache, donc il est cree sur swarm-3 et y reste.
+La regle inverse (`!= true`, bloc `x-deploy-app`) tient les services sans
+etat a l'ecart de swarm-3.
+
+**Et si swarm-3 tombe ?** Swarm n'a le droit de placer db et bus nulle part
+ailleurs (contrainte) : ils restent en attente (`Pending`). C'est voulu, sinon
+ils redemarreraient ailleurs avec un disque vide.
+- Pendant la panne : plus de base ni de bus. Les ecritures et les lectures
+  du fil echouent ; publications et worker, qui exigent une connexion au bus,
+  sont redemarres en boucle par leur sonde. L'appli est indisponible.
+- Rien n'est perdu : les volumes sont sur le disque de swarm-3.
+- Au retour de swarm-3 : db et bus redemarrent avec leurs donnees, puis les
+  autres services se reconnectent seuls (quelques minutes).
+Le sujet l'assume : la haute disponibilite des donnees est hors perimetre
+(« une seule instance de base, correctement placee et sauvegardee »). Pour
+s'en passer il faudrait un stockage partage (NFS, Ceph) ou une base
+repliquee. Filet de securite : `./scripts/backup-db.sh` garde une copie sur
+le poste.
