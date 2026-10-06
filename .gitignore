@@ -5,3 +5,4 @@ backups/
 *.dump
 .DS_Store
 .secrets/
+docs/soutenance.md

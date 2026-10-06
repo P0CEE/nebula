@@ -1,8 +1,5 @@
 # Architecture : comprendre et repondre aux questions
 
-Pour la partie questions de la soutenance. Les demonstrations sont dans
-[soutenance.md](soutenance.md).
-
 ## L'architecture en une minute 
 
 - **3 VM, 1 cluster Swarm** : swarm-1 dirige (manager), swarm-2 et swarm-3
