@@ -11,8 +11,8 @@ MANAGER=swarm-1; MANAGER_IP=10.96.252.11
 WORKERS=(swarm-2 swarm-3); DATA_NODE=swarm-3
 REGISTRY_HOST=registry; REGISTRY=10.96.252.20:5000
 
-# Identifiants generes une fois sur le poste d'admin, hors depot.
-CREDS=${NEBULA_CREDS:-$HOME/.config/nebula}
+# Identifiants generes une fois dans .secrets/ (ignore par git, jamais pousse).
+CREDS="$(cd "$(dirname "$0")/.." && pwd)/.secrets"
 mkdir -p "$CREDS" && chmod 700 "$CREDS"
 for f in registry-password admin-password; do
   [ -s "$CREDS/$f" ] || (umask 077; openssl rand -hex 16 > "$CREDS/$f")
