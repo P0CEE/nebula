@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploie ou met a jour edge puis nebula sur le cluster (contexte Docker
+# Deploie ou met a jour edge, portainer puis nebula sur le cluster (contexte Docker
 # nebula = manager swarm-1). Sert au deploiement initial, aux mises a jour et
 # au retour arriere (redeployer l'ancien tag).
 #   ./scripts/deploy.sh v2
@@ -15,6 +15,7 @@ for i in $(seq 1 10); do
   docker stack deploy -d -c swarm/stack.edge.yml edge >/dev/null 2>&1 && break
   sleep 3
 done
+docker stack deploy -d -c swarm/stack.portainer.yml portainer >/dev/null
 REGISTRY=$REGISTRY TAG=$TAG docker stack deploy -d --with-registry-auth \
   -c swarm/stack.nebula.todo.yml nebula
 echo "deploye : $TAG ($(git rev-parse --short HEAD)). Suivi : docker service ls"

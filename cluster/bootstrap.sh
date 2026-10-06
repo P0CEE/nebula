@@ -14,7 +14,7 @@ REGISTRY_HOST=registry; REGISTRY=10.96.252.20:5000
 # Identifiants generes une fois dans .secrets/ (ignore par git, jamais pousse).
 CREDS="$(cd "$(dirname "$0")/.." && pwd)/.secrets"
 mkdir -p "$CREDS" && chmod 700 "$CREDS"
-for f in registry-password admin-password; do
+for f in registry-password admin-password portainer-password; do
   [ -s "$CREDS/$f" ] || (umask 077; openssl rand -hex 16 > "$CREDS/$f")
 done
 
@@ -98,6 +98,8 @@ fi
 true
 EOF
 ssh "$MANAGER" 'read -r P; docker secret inspect edge_admin_htpasswd >/dev/null 2>&1 || printf "admin:%s\n" "$(printf %s "$P" | openssl passwd -apr1 -stdin)" | docker secret create edge_admin_htpasswd - >/dev/null' < "$CREDS/admin-password"
+
+docker --context nebula secret inspect portainer_admin_password >/dev/null 2>&1 || docker --context nebula secret create portainer_admin_password "$CREDS/portainer-password" >/dev/null
 
 # Certificat HTTPS (autorite locale mkcert) : nebula.test et *.nebula.test.
 mkdir -p "$CREDS/tls"

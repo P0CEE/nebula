@@ -1,0 +1,59 @@
+# ===========================================================================
+# Outil d'administration : Portainer sur https://portainer.nebula.test
+#   - utilisateur admin, mot de passe : secret portainer_admin_password
+#     (copie locale : .secrets/portainer-password)
+#   - aucun port publie : on passe par Traefik (443), comme le reste
+#   - un agent par noeud (mode global) pour voir conteneurs, volumes et
+#     journaux de tout le cluster
+# ===========================================================================
+services:
+  agent:
+    image: portainer/agent:2.45.1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    networks: [agent]
+    deploy:
+      mode: global
+      restart_policy: { condition: any, delay: 5s }
+      resources:
+        limits: { cpus: "0.25", memory: 64M }
+
+  portainer:
+    image: portainer/portainer-ce:2.45.1
+    command:
+      - -H
+      - tcp://tasks.agent:9001
+      - --tlsskipverify                 # certificat auto-signe de l'agent, reseau interne
+      - --http-enabled                  # Traefik termine le HTTPS
+      - --admin-password-file=/run/secrets/portainer_admin_password
+    secrets: [portainer_admin_password]
+    volumes:
+      - data:/data                      # comptes et reglages, sur le manager
+    networks: [agent, public]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy: { condition: any, delay: 5s }
+      resources:
+        limits: { cpus: "0.50", memory: 256M }
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.portainer.rule=Host(`portainer.nebula.test`)
+        - traefik.http.routers.portainer.entrypoints=websecure
+        - traefik.http.services.portainer.loadbalancer.server.port=9000
+        - traefik.swarm.lbswarm=true
+
+networks:
+  agent:
+    driver: overlay          # serveur <-> agents uniquement
+  public:
+    external: true
+    name: edge_public
+
+volumes:
+  data:
+
+secrets:
+  portainer_admin_password: { external: true }

@@ -12,6 +12,7 @@ flowchart TB
 
     subgraph s1["swarm-1 10.96.252.11 - manager"]
       traefik["edge_traefik :443<br/>nebula.test<br/>traefik.nebula.test (mdp)"]
+      portainer["portainer<br/>portainer.nebula.test (mdp)<br/>+ 1 agent par noeud"]
     end
     subgraph s12["swarm-1 + swarm-2 (nebula.data != true)"]
       comptes["comptes x3"]
@@ -30,6 +31,7 @@ flowchart TB
   traefik -. "/api/comptes" .-> comptes
   traefik -. "/api/publications, /api/fil, /api/health" .-> publications
   traefik -. "rabbitmq.nebula.test" .-> busadmin
+  traefik -. "portainer.nebula.test" .-> portainer
 
   comptes --> db
   publications --> comptes
@@ -42,6 +44,7 @@ flowchart TB
 
 | Reseau | Membres | Joignable depuis |
 |---|---|---|
-| `edge_public` (overlay) | traefik, comptes, publications, bus-admin | Traefik uniquement |
+| `edge_public` (overlay) | traefik, comptes, publications, bus-admin, portainer | Traefik uniquement |
 | `nebula_internal` (overlay, `internal: true`) | comptes, publications, worker, db, bus, cache, bus-admin | services internes ; aucune sortie Internet |
+| `portainer_agent` (overlay) | portainer, agents | Portainer uniquement |
 | Port publie | 443 HTTPS (Traefik, routing mesh) | sur les 3 noeuds |

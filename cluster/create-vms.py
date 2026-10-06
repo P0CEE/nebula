@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cree les 4 VM du lab sur Proxmox (3 noeuds Swarm + registry), idempotent.
 
-    export PVE_TOKEN='PVEAPIToken=<user>@<realm>!<id>=<secret>'   # jamais commite
+    # token : .secrets/pve-token (ignore par git) ou variable PVE_TOKEN
     ./cluster/create-vms.py
 
 Clone du template Debian cloud-init, reseau du LAN du routeur, IP fixe,
@@ -11,7 +11,9 @@ import json, os, ssl, sys, time, urllib.parse, urllib.request
 from pathlib import Path
 
 API = os.environ.get("PVE_API", "https://10.255.0.224:8006/api2/json")
-TOKEN = os.environ.get("PVE_TOKEN") or sys.exit("PVE_TOKEN manquant")
+_TOKEN_FILE = Path(__file__).resolve().parent.parent / ".secrets" / "pve-token"
+TOKEN = os.environ.get("PVE_TOKEN") or (_TOKEN_FILE.read_text().strip() if _TOKEN_FILE.exists() else None) \
+    or sys.exit("PVE_TOKEN manquant (variable ou .secrets/pve-token)")
 SSHKEY = Path(os.environ.get("SSH_PUBKEY", Path.home() / ".ssh/id_ed25519.pub")).read_text().strip()
 CTX = ssl._create_unverified_context()  # certificat auto-signe du lab
 

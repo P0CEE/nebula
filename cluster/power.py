@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Arret propre puis rallumage des 3 noeuds Swarm (le registry reste allume).
 
-    export PVE_TOKEN='PVEAPIToken=...'      # jamais commite
+    # token : .secrets/pve-token (ignore par git) ou variable PVE_TOKEN
     ./cluster/power.py stop    # workers puis manager, un par un (poweroff)
     ./cluster/power.py start   # les 3 en meme temps, le cluster se reforme seul
 """
 import json, os, ssl, subprocess, sys, time, urllib.parse, urllib.request
+from pathlib import Path
 
 API = os.environ.get("PVE_API", "https://10.255.0.224:8006/api2/json")
-TOKEN = os.environ.get("PVE_TOKEN") or sys.exit("PVE_TOKEN manquant")
+_TOKEN_FILE = Path(__file__).resolve().parent.parent / ".secrets" / "pve-token"
+TOKEN = os.environ.get("PVE_TOKEN") or (_TOKEN_FILE.read_text().strip() if _TOKEN_FILE.exists() else None) \
+    or sys.exit("PVE_TOKEN manquant (variable ou .secrets/pve-token)")
 CTX = ssl._create_unverified_context()  # certificat auto-signe du lab
 STOP_ORDER = ["swarm-3", "swarm-2", "swarm-1"]   # workers d'abord, manager en dernier
 
