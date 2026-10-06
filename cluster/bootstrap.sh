@@ -65,6 +65,8 @@ for w in "${WORKERS[@]}"; do
   ssh "$w" "docker info -f '{{.Swarm.LocalNodeState}}' | grep -qx active || docker swarm join --token $TOKEN $MANAGER_IP:2377 >/dev/null"
 done
 ssh "$MANAGER" "docker node update --label-add nebula.data=true $DATA_NODE >/dev/null"
+# Historique : 1 ancienne tache par instance (assez pour voir un echec).
+ssh "$MANAGER" "docker swarm update --task-history-limit 1 >/dev/null"
 
 echo "== Routeur : port 443 du WAN -> cluster (nebula.test, traefik., rabbitmq.)"
 ssh lab-router "uci -q get firewall.nebula_https >/dev/null || {

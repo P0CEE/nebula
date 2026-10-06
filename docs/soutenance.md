@@ -63,6 +63,11 @@ et le sujet l'autorise. Limite a citer si on vous la demande.
 2. `docker --context nebula node ls` repond : 3 noeuds Ready.
 3. Onglets ouverts : https://portainer.nebula.test (Swarm > Cluster
    visualizer), https://nebula.test/api/fil, https://rabbitmq.nebula.test.
+   Dans le visualizer : fond vert = tache en cours, rouge = arretee ou en
+   echec, bleu = terminee ; la couleur du cadre identifie le service. Cocher
+   "Only display running tasks" pour ne voir que ce qui tourne. Swarm garde
+   1 ancienne tache par instance (`--task-history-limit 1`) : c'est elle qui
+   montre l'echec au scenario 8.
 4. Mots de passe a portee : `pbcopy < .secrets/portainer-password`, etc.
 5. Version cassee prete : `./scripts/build-broken.sh comptes v3` (deja fait).
 
