@@ -1,5 +1,5 @@
 # ===========================================================================
-# Modele pour ajouter un 8e service (scenario 10) sans toucher aux 7 autres
+# Modele pour ajouter un 8e service sans toucher aux 7 autres
 # ni a edge : sa propre stack, les reseaux existants, son routage en labels.
 #   1. copier ce fichier, remplacer "notifications" par le nom du service
 #   2. image (tag immuable), port, route

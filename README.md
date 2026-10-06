@@ -4,7 +4,8 @@ Reseau social minimal deploye sur un cluster Docker Swarm de trois VM
 (1 manager, 2 workers) + une VM registry a cote du cluster.
 
 - Exploitation, quel script lancer et ou : [docs/exploitation.md](docs/exploitation.md)
-- Soutenance (architecture, comment ca marche, les 10 scenarios pas a pas) : [docs/soutenance.md](docs/soutenance.md)
+- Soutenance, les 10 scenarios pas a pas : [docs/soutenance.md](docs/soutenance.md)
+- Architecture, fonctionnement, questions : [docs/architecture.md](docs/architecture.md)
 - Schema du cluster : [docs/schema-reseau.md](docs/schema-reseau.md)
 
 ```

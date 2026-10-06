@@ -19,9 +19,9 @@ x-deploy-app: &deploy_app
   update_config:
     parallelism: 1
     delay: 10s
-    order: start-first        # la nouvelle tache est saine avant l'arret de l'ancienne
+    order: start-first        
     monitor: 30s
-    failure_action: rollback  # echec de sonde pendant la mise a jour => retour arriere
+    failure_action: rollback  
     max_failure_ratio: 0
   rollback_config:
     parallelism: 1
@@ -96,11 +96,6 @@ services:
     # RabbitMQ range ses donnees sous mnesia/rabbit@<hostname>. Sans hostname
     # fixe, chaque nouvelle tache a un nom different et repart d'une file vide.
     hostname: bus
-    # Definitions chargees a chaque demarrage depuis un dossier : la topologie
-    # (files + politique des messages en erreur) est versionnee, l'utilisateur
-    # (hash du mot de passe) est un secret. Les variables *_FILE sont refusees
-    # par l'image 4.x, et charger des definitions desactive l'utilisateur par
-    # defaut : il est donc declare dans le secret.
     configs:
       - { source: bus_definitions_conf, target: /etc/rabbitmq/conf.d/20-definitions.conf }
       - { source: bus_topologie, target: /etc/rabbitmq/definitions/10-topologie.json }
@@ -144,9 +139,6 @@ services:
       resources:
         limits: { cpus: "0.50", memory: 128M }
 
-  # Interface d'administration RabbitMQ sur rabbitmq.nebula.test. Le bus
-  # reste SEULEMENT sur le reseau interne : ce relais est sur les deux
-  # reseaux et ne transmet que le port 15672 (jamais 5672).
   bus-admin:
     image: alpine/socat:1.8.0.3
     command: ["TCP-LISTEN:15672,fork,reuseaddr", "TCP:bus:15672"]

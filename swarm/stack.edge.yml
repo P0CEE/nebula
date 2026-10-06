@@ -2,18 +2,6 @@
 # Point d'entree HTTP.
 #
 #   docker stack deploy -c swarm/stack.edge.yml edge   (cree le reseau edge_public)
-#
-# Un seul port ouvert sur tout le cluster. Chaque service declare son routage
-# dans SES labels : ajouter un service ne demande aucune modification ici.
-# C'est ce qui rend le scenario 8 (ajout d'un service en soutenance) tenable.
-#
-# Ecarts par rapport au fichier fourni :
-#   - traefik v3.3 -> v3.6.25 : v3.3 parle l'API Docker 1.24, refusee par
-#     Docker 29 (minimum 1.40). Avec v3.3, Traefik ne voit aucun service.
-#   - HTTPS uniquement : seul le port 443 est publie (ni 80, ni 8088,
-#     --api.insecure retire). Certificat dans les secrets edge_tls_cert/key.
-#   - tableau de bord sur traefik.nebula.test, protege par mot de passe
-#     (secret edge_admin_htpasswd).
 # ===========================================================================
 services:
   traefik:
@@ -27,8 +15,6 @@ services:
       - --entryPoints.websecure.address=:443
       - --entryPoints.websecure.http.tls=true
       - --providers.file.filename=/etc/traefik/tls.yml
-      # Pas de connexion persistante vers les services : l'IP virtuelle Swarm
-      # repartit par connexion, donc une connexion par requete = repartition.
       - --serversTransport.maxIdleConnsPerHost=-1
       - --api.dashboard=true
       - --accesslog=true
